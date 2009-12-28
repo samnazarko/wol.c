@@ -22,15 +22,13 @@
  * address is in the form "XX:XX:XX:XX:XX:XX" (the colons are optional).
  *
  * Returns 0 on success, -1 on error. */
-static int send_wol(const char *hardware_addr, unsigned port,
-                    unsigned long bcast);
+int send_wol(const char *hardware_addr, unsigned port, unsigned long bcast);
 
-static int print_usage(const char *progname)
+static void print_usage(const char *progname)
 {
 	fprintf(stderr,
 	        "Usage: %s [-q] [-b <bcast>] [-p <port>] <dest>\n",
 	        progname);
-	return 1;
 }
 
 typedef enum {
@@ -38,10 +36,9 @@ typedef enum {
 	OPT_ADDRESS_REQUIRED,
 	OPT_INT_REQUIRED,
 	OPT_INVALID
-} option_errno;
+} option_err;
 
-/* Prints given option and returns 1 for convenience. */
-static int print_option_error(const char opt, option_errno err)
+static void print_option_error(const char opt, option_err err)
 {
 	switch (err) {
 		case OPT_ARG_REQUIRED:
@@ -57,8 +54,6 @@ static int print_option_error(const char opt, option_errno err)
 			fprintf(stderr, "Unknown option '-%c'.\n", opt);
 			break;
 	}
-
-	return 1;
 }
 
 int main(int argc, char * const argv[])
@@ -79,19 +74,21 @@ int main(int argc, char * const argv[])
 			case 'b': /* bcast */
 				bcast = inet_addr(optarg);
 				if (bcast == INADDR_NONE) {
-					return print_option_error(optopt, OPT_ADDRESS_REQUIRED);
+					print_option_error(optopt, OPT_ADDRESS_REQUIRED);
+					return 1;
 				}
 				break;
 			case 'p': /* port */
 				port = strtol(optarg, NULL, 0);
 				if (port == 0 && errno != 0) {
-					return print_option_error(optopt, OPT_INT_REQUIRED);
+					print_option_error(optopt, OPT_INT_REQUIRED);
+					return 1;
 				}
 			case '?': /* unrecognized option */
 				if (optopt == 'b' || optopt == 'p' || optopt == 'd') {
-					return print_option_error(optopt, OPT_ARG_REQUIRED);
+					return print_option_error(optopt, OPT_ARG_REQUIRED), 1;
 				} else {
-					return print_option_error(optopt, OPT_INVALID);
+					return print_option_error(optopt, OPT_INVALID), 1;
 				}
 			default:
 				abort();
@@ -118,8 +115,7 @@ int main(int argc, char * const argv[])
 
 static int get_ether(const char *hardware_addr, unsigned char *dest);
 
-static int send_wol(const char *hardware_addr, unsigned port,
-                    unsigned long bcast)
+int send_wol(const char *hardware_addr, unsigned port, unsigned long bcast)
 {
 	unsigned char ether_addr[8];
 	unsigned char message[102];
@@ -195,8 +191,7 @@ static size_t get_hex_from_string(const char *buf, size_t buflen, unsigned *hex)
 		} else if (buf[i] >= 'A' && buf[i] <= 'F') {
 			*hex |= buf[i] - 'A' + 10;
 		} else {
-			errno = EINVAL;
-			return 0;
+			return 0; /* Error */
 		}
 	}
 	return i;
@@ -227,5 +222,5 @@ static int get_ether(const char *hardware_addr, unsigned char *dest)
 		if (*hardware_addr == ':') ++hardware_addr;
 	}
 
-	return ((hardware_addr - orig) == 17) ? 0 : -1;
+	return (hardware_addr - orig == 17) ? 0 : -1;
 }
